@@ -24,6 +24,10 @@
 - `npm audit --package-lock-only --json` (0 vulnerabilities)
 - `osv-scanner scan --recursive . --format json` (0 findings)
 
+**CI/CD remediation verification run on 2026-05-23:**
+- `semgrep --config p/security-audit --config p/owasp-top-ten --config p/cwe-top-25 .github/workflows/builder.yml`
+- `actionlint .github/workflows/builder.yml`
+
 **Technology stack:**
 - CastLabs Electron (Chromium fork with Widevine CDM), TypeScript, electron-builder
 - Runtime deps: `@holusion/dbus-next`, `@xhayper/discord-rpc`, `electron-conf`, `electron-log`, `electron-updater`
@@ -74,6 +78,24 @@ Prefix-based `startsWith()` check replaced with `new URL()` parsing, explicit `h
 ### GHSA-jxxr-4gwj-5jf2 / CVE-2026-45149: brace-expansion resource exhaustion - RESOLVED
 
 The 2026-05-23 dependency addendum initially found `brace-expansion` 5.0.5 vulnerable to resource exhaustion when large numeric ranges defeat the documented `max` protection. The override has been raised from `>=5.0.5` to `>=5.0.6`, and the lockfile now resolves `brace-expansion` to 5.0.6.
+
+### 2026-05-23 W1. [CWE-78] GitHub release tag shell interpolation - RESOLVED
+
+The 2026-05-23 audit found `github.ref_name` interpolated directly inside the release workflow shell step that checks whether a GitHub Release already exists. GitHub expression interpolation happens before Bash runs, so a crafted tag name could break out of the intended quoted argument.
+
+The workflow now passes the tag through `env.RELEASE_TAG` and references the quoted shell variable in the `run:` block:
+
+```yaml
+env:
+  RELEASE_TAG: ${{ github.ref_name }}
+run: |
+  if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+    echo "Error: release $RELEASE_TAG already exists" >&2
+    exit 1
+  fi
+```
+
+This preserves the release guard while removing direct `github.*` context interpolation from the shell script.
 
 ### Post-report dependency remediations - RESOLVED
 
@@ -217,11 +239,11 @@ The codebase follows Electron security best practices consistently:
 
 **Repeat-offender patterns:** None identified. No systemic security issues across the codebase.
 
-**Dependency addendum status:** The named Dependabot security updates have been merged and are reflected in `package-lock.json`. The newer moderate `brace-expansion` advisory has been resolved as of 2026-05-23.
+**Security addendum status:** The named Dependabot security updates have been merged and are reflected in `package-lock.json`. The newer moderate `brace-expansion` advisory and the 2026-05-23 GitHub Actions shell interpolation finding have been resolved as of 2026-05-23.
 
 ## Remediation Roadmap
 
 | Priority | Finding | Effort | Action |
 |----------|---------|--------|--------|
-| 1 | W1 - Disabled update signature verification | High | Sign Windows builds, remove `verifyUpdateCodeSignature = false` |
+| 1 | Disabled update signature verification | High | Sign Windows builds, remove `verifyUpdateCodeSignature = false` |
 | 2 | O3 - Broad macOS entitlements | N/A | Cannot remediate; required by Electron + Widevine |

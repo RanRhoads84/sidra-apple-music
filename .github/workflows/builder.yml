@@ -214,11 +214,12 @@ jobs:
     steps:
       - name: Check release does not already exist
         run: |
-          if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
-            echo "Error: release ${{ github.ref_name }} already exists" >&2
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "Error: release $RELEASE_TAG already exists" >&2
             exit 1
           fi
         env:
+          RELEASE_TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Download all build artefacts
         uses: actions/download-artifact@v8
